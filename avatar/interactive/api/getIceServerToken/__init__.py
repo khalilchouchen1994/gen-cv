@@ -29,4 +29,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             headers={"Content-Type": "application/json"}
         )
     else:
-        return func.HttpResponse(response.status_code)
+        return func.HttpResponse(  
+            body=json.dumps({"error": f"Request failed with status code {response.status_code}"}),  
+            status_code=response.status_code,  
+            headers={"Content-Type": "application/json"}  
+        )  
