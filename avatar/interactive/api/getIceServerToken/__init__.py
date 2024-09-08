@@ -15,7 +15,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     # Define token endpoint
     token_endpoint = f"https://{region}.tts.speech.microsoft.com/cognitiveservices/avatar/relay/token/v1"
-    print("*************")
+    print("Ice*************")
     print(token_endpoint)
     print(subscription_key)
 
