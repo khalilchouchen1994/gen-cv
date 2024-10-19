@@ -147,120 +147,93 @@ function handleUserQuery(userQuery, userQueryHTML) {
   let spokenSentence = ''
   let displaySentence = ''
 
-  fetch("/api/get-oai-response", {
-    method: "POST",
-    body: body
-  })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Chat API response status: ${response.status} ${response.statusText}`)
-      }
-
-      const reader = response.body.getReader()
-
-      // Function to recursively read chunks from the stream
-      function read(previousChunkString = '') {
-        return reader.read().then(({ value, done }) => {
-          // Check if there is still data to read
-          if (done) {
-            // Stream complete
-            return
-          }
-
-          // Process the chunk of data (value)
-          let chunkString = new TextDecoder().decode(value, { stream: true })
-          if (previousChunkString !== '') {
-            // Concatenate the previous chunk string in case it is incomplete
-            chunkString = previousChunkString + chunkString
-          }
-
-          new TextDecoder().decode(value, { stream: true, json: true})
-
-          try {
-            responseToken = chunkString
-            console.log('responseToken', responseToken)
-            
-            if (responseToken !== undefined && responseToken !== null) {
-              try {  
-                responseToken = chunkString;  
-                console.log('responseToken', responseToken);  
-              
-                if (responseToken !== undefined && responseToken !== null) {  
-                    try {  
-                        // Check if responseToken is a valid JSON string  
-                        if (responseToken.trim().startsWith('{') && responseToken.trim().endsWith('}')) {  
-                            product = JSON.parse(responseToken);  
-                            console.log(product);  
-              
-                            const isObject = (x) => typeof x === 'object' && !Array.isArray(x) && x !== null;  
-                            if (isObject(product)) {  
-                                addProductToChatHistory(product);  
-                                console.log(product);  
-                                responseToken = '';  
-                            }  
-                        } else {  
-                            console.log('Non-JSON response:', responseToken);  
-                        }  
-                    } catch (error) {  
-                        console.log('Error parsing product:', error);  
-                    }  
+  fetch("/api/get-oai-response", {  
+    method: "POST",  
+    body: body  
+  })  
+  .then(response => {  
+    if (!response.ok) {  
+      throw new Error(`Chat API response status: ${response.status} ${response.statusText}`);  
+    }  
+    
+    const reader = response.body.getReader();  
+    
+    function read(previousChunkString = '') {  
+      return reader.read().then(({ value, done }) => {  
+        if (done) {  
+          return;  
+        }  
+    
+        let chunkString = new TextDecoder().decode(value, { stream: true });  
+        if (previousChunkString !== '') {  
+          chunkString = previousChunkString + chunkString;  
+        }  
+    
+        try {  
+          if (chunkString.trim().startsWith('{') && chunkString.trim().endsWith('}')) {  
+            const product = JSON.parse(chunkString);  
+            console.log(product);  
+    
+            const isObject = (x) => typeof x === 'object' && !Array.isArray(x) && x !== null;  
+            if (isObject(product)) {  
+              addProductToChatHistory(product);  
+              console.log(product);  
+            }  
+          } else {  
+            // Only build spokenSentence and displaySentence with non-JSON response  
+            const sanitizedChunk = chunkString.replace(/\n/g, '').replace(/[*\uD83C-\uDBFF\uDC00-\uDFFF]+/g, '');  
+            spokenSentence += sanitizedChunk;  
+            displaySentence += sanitizedChunk;  
+            console.log('Non-JSON response:', chunkString);  
+          }  
+    
+          if (chunkString === '\n' || chunkString === '\n\n') {  
+            speak(spokenSentence.trim());  
+            spokenSentence = '';  
+          } else {  
+            if (chunkString.length === 1 || chunkString.length === 2) {  
+              for (let punctuation of sentenceLevelPunctuations) {  
+                if (chunkString.startsWith(punctuation)) {  
+                  speak(spokenSentence.trim());  
+                  spokenSentence = '';  
+                  break;  
                 }  
-              } catch (error) {  
-                console.log('General error:', error);  
               }  
-            
-              assistantReply += responseToken // build up the assistant message
-              displaySentence += responseToken // build up the display sentence
-
-              if (responseToken === '\n' || responseToken === '\n\n') {
-                speak(spokenSentence.trim())
-                spokenSentence = ''
-              } else {
-                responseToken = responseToken.replace(/\n/g, '')
-                responseToken = responseToken.replace(/[*\uD83C-\uDBFF\uDC00-\uDFFF]+/g, '');
-                spokenSentence += responseToken // build up the spoken sentence
-
-                if (responseToken.length === 1 || responseToken.length === 2) {
-                  for (let i = 0; i < sentenceLevelPunctuations.length; ++i) {
-                    let sentenceLevelPunctuation = sentenceLevelPunctuations[i]
-                    if (responseToken.startsWith(sentenceLevelPunctuation)) {
-                      speak(spokenSentence.trim())
-                      spokenSentence = ''
-                      break
-                    }
-                  }
-                }
-              }
-            }
-          } catch (error) {
-            console.log(`Error occurred while parsing the response: ${error}`)
-            console.log(chunkString)
-          }
-          // })
-
-          if (displaySentence !== '') {
-            addToConversationHistory(displaySentence, 'light');
-          }
-          displaySentence = ''
-          return read()
-        })
-      }
-
-      // Start reading the stream
-      return read()
-    })
-    .then(() => {
-      if (spokenSentence !== '') {
-        speak(spokenSentence.trim())
-        spokenSentence = ''
-      }
-      let assistantMessage = {
-        role: 'assistant',
-        content: assistantReply
-      }
-
-      messages.push(assistantMessage)
-    })
+            }  
+          }  
+    
+        } catch (error) {  
+          console.log('Error occurred while parsing the response:', error);  
+          console.log(chunkString);  
+        }  
+    
+        if (displaySentence !== '') {  
+          addToConversationHistory(displaySentence, 'light');  
+          displaySentence = '';  
+        }  
+    
+        return read();  
+      });  
+    }  
+    
+    return read();  
+  })  
+  .then(() => {  
+    if (spokenSentence !== '') {  
+      speak(spokenSentence.trim());  
+      spokenSentence = '';  
+    }  
+    let assistantMessage = {  
+      role: 'assistant',  
+      content: assistantReply  
+    };  
+    messages.push(assistantMessage);  
+  })  
+  .catch(error => {  
+    console.error('Fetch error:', error);  
+  });  
+  
+  
 }
 
 // Speak the given text
