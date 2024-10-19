@@ -181,19 +181,34 @@ function handleUserQuery(userQuery, userQueryHTML) {
             console.log('responseToken', responseToken)
             
             if (responseToken !== undefined && responseToken !== null) {
-              try {
-                const isObject = (x) => typeof x === 'object' && !Array.isArray(x) && x !== null
-                console.log(responseToken, typeof responseToken)
-                product = JSON.parse(responseToken)
-                console.log(product, isObject(product), typeof product)
-                if (isObject(product)) {
-                  addProductToChatHistory(product)
-                  console.log(product)
-                  responseToken = ''
-                }
-              } catch (error) {
-                console.log('Error parsing product:', error)
-              }
+              try {  
+                responseToken = chunkString;  
+                console.log('responseToken', responseToken);  
+              
+                if (responseToken !== undefined && responseToken !== null) {  
+                    try {  
+                        // Check if responseToken is a valid JSON string  
+                        if (responseToken.trim().startsWith('{') && responseToken.trim().endsWith('}')) {  
+                            product = JSON.parse(responseToken);  
+                            console.log(product);  
+              
+                            const isObject = (x) => typeof x === 'object' && !Array.isArray(x) && x !== null;  
+                            if (isObject(product)) {  
+                                addProductToChatHistory(product);  
+                                console.log(product);  
+                                responseToken = '';  
+                            }  
+                        } else {  
+                            console.log('Non-JSON response:', responseToken);  
+                        }  
+                    } catch (error) {  
+                        console.log('Error parsing product:', error);  
+                    }  
+                }  
+              } catch (error) {  
+                console.log('General error:', error);  
+              }  
+            
               assistantReply += responseToken // build up the assistant message
               displaySentence += responseToken // build up the display sentence
 
