@@ -170,8 +170,13 @@ function handleUserQuery(userQuery, userQueryHTML) {
         }  
     
         try {  
-          if (chunkString.trim().startsWith('{') && chunkString.trim().endsWith('}')) {  
-            const product = JSON.parse(chunkString);  
+          // Attempt to extract JSON from the string  
+          const jsonStart = chunkString.indexOf('{');  
+          const jsonEnd = chunkString.lastIndexOf('}') + 1;  
+            
+          if (jsonStart !== -1 && jsonEnd !== -1) {  
+            const jsonString = chunkString.substring(jsonStart, jsonEnd);  
+            const product = JSON.parse(jsonString);  
             console.log(product);  
     
             const isObject = (x) => typeof x === 'object' && !Array.isArray(x) && x !== null;  
@@ -179,15 +184,23 @@ function handleUserQuery(userQuery, userQueryHTML) {
               addProductToChatHistory(product);  
               console.log(product);  
             }  
+    
+            // Extract non-JSON parts  
+            const nonJsonString = chunkString.substring(0, jsonStart) + chunkString.substring(jsonEnd);  
+            const sanitizedChunk = nonJsonString.replace(/\n/g, '').replace(/[*\uD83C-\uDBFF\uDC00-\uDFFF]+/g, '');  
+            spokenSentence += sanitizedChunk;  
+            displaySentence += sanitizedChunk;  
+            console.log('Non-JSON response:', nonJsonString);  
+    
           } else {  
-            // Only build spokenSentence and displaySentence with non-JSON response  
+            // Handle the chunk as non-JSON if no valid JSON structure is found  
             const sanitizedChunk = chunkString.replace(/\n/g, '').replace(/[*\uD83C-\uDBFF\uDC00-\uDFFF]+/g, '');  
             spokenSentence += sanitizedChunk;  
             displaySentence += sanitizedChunk;  
             console.log('Non-JSON response:', chunkString);  
           }  
     
-          if (chunkString === '\n' || chunkString === '\n\n') {  
+          if (chunkString.includes('\n')) {  
             speak(spokenSentence.trim());  
             spokenSentence = '';  
           } else {  
@@ -214,8 +227,7 @@ function handleUserQuery(userQuery, userQueryHTML) {
     
         return read();  
       });  
-    }  
-    
+    }     
     return read();  
   })  
   .then(() => {  
@@ -232,7 +244,6 @@ function handleUserQuery(userQuery, userQueryHTML) {
   .catch(error => {  
     console.error('Fetch error:', error);  
   });  
-  
   
 }
 
